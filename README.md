@@ -2,14 +2,17 @@
 
 A free Pokémon card binder planner. Search every card, drag them into binder pages, and upload your own art at no cost. That includes splitting one big artwork across a whole page.
 
-## Run it
+## Run it on your computer
 
-```bash
-npm install
-npm run dev
-```
+1. Install **Node.js**: go to <https://nodejs.org/> and download the **LTS** version. Run the installer with the default options.
+2. Start DreamBinder:
+   - **Windows:** double-click **`Start (Windows).bat`**.
+   - **Mac:** double-click **`Start (Mac).command`**. If macOS blocks it, right-click it → **Open** → **Open**.
 
-Then open http://localhost:3000.
+A window opens (leave it open, that's DreamBinder running) and your browser opens **http://localhost:3000**.
+The first start takes a minute or two. Your binders are saved in your browser.
+
+For developers: `npm install`, then `npm run dev`.
 
 ## What works (Phase 1)
 
