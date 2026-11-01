@@ -1,0 +1,43 @@
+export type CardSlot = {
+  kind: "card";
+  cardId: string;
+  name: string;
+  /** TCGdex image base URL (append /low.webp or /high.webp) */
+  image: string;
+};
+
+export type CustomSlot = {
+  kind: "custom";
+  /** Key of the image stored in IndexedDB */
+  imageId: string;
+};
+
+export type Slot = CardSlot | CustomSlot | null;
+
+export type Binder = {
+  id: string;
+  name: string;
+  rows: number;
+  cols: number;
+  cover: string;
+  pages: Slot[][];
+  updatedAt: number;
+};
+
+export const GRID_PRESETS = [
+  { label: "4-pocket (2×2)", rows: 2, cols: 2 },
+  { label: "9-pocket (3×3)", rows: 3, cols: 3 },
+  { label: "12-pocket (3×4)", rows: 4, cols: 3 },
+  { label: "16-pocket (4×4)", rows: 4, cols: 4 },
+] as const;
+
+export const COVER_COLORS = [
+  "#1e3a8a", "#7f1d1d", "#14532d", "#581c87", "#0f172a", "#9a3412", "#be185d", "#0e7490",
+];
+
+/** Drag payloads */
+export type DragData =
+  | { type: "card"; slot: CardSlot }
+  | { type: "slot"; page: number; index: number; slot: Exclude<Slot, null> };
+
+export type DropData = { type: "slot"; page: number; index: number } | { type: "trash" };

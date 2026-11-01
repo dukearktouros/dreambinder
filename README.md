@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DreamBinder
 
-## Getting Started
+A free Pokémon card binder planner. Search every card, drag them into binder pages, and upload your own art at no cost. That includes splitting one big artwork across a whole page.
 
-First, run the development server:
+## Run it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What works (Phase 1)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Search cards by Pokémon or trainer name, or browse any set (data from the free [TCGdex API](https://tcgdex.dev))
+- Drag and drop into pockets, swap pockets, drag to the bin to remove
+- Click a pocket, then click cards to fill pockets in order (works well on phones)
+- 4, 9, 12 and 16-pocket layouts, add or remove pages, binder cover colours
+- **Free custom uploads:** a single card-sized image, or one artwork sliced across a whole page
+- "Make binder from set" creates a complete set binder in one click
+- Several binders, autosaved in the browser (localStorage, with images in IndexedDB)
+- Export a two-page spread as a PNG to share on Discord or social media
 
-## Learn More
+## Code map
 
-To learn more about Next.js, take a look at the following resources:
+| Path | What |
+|---|---|
+| `src/lib/tcgdex.ts` | Card API client |
+| `src/lib/image.ts` | Crop and split uploads, image storage |
+| `src/lib/store.ts` | Binder state and saving |
+| `src/lib/export.ts` | PNG export |
+| `src/components/Editor.tsx` | Main screen: binder spread, drag and drop |
+| `src/components/Library.tsx` | Search, sets and upload tabs |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roadmap
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. ~~Binder builder~~ ✅
+2. Accounts (Supabase + Discord login), cloud saves, public share links
+3. Social: publish binders, upvotes, trending, premade layouts per set, Pokémon and trainer
+4. Discord app: bot `/binder` command plus an embedded Activity
+5. Artist commissions (Stripe Connect) and a print shop, **for original art only** (no Pokémon IP)
