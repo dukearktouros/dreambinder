@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { imageToCard, prepareArt, saveImage } from "@/lib/image";
+import { imageToCard, prepareArt, saveImage, splitAcrossPage } from "@/lib/image";
 import type { PageArt } from "@/lib/types";
 
 export type UploadHandlers = {
@@ -10,10 +10,33 @@ export type UploadHandlers = {
   onPlaceImage: (imageId: string) => void;
   /** Put background art behind a page of the current spread (0 = left, 1 = right). */
   onSetArt: (side: 0 | 1, art: PageArt) => void;
+  /** Where a block of cut-up cards goes: the selected pocket, or top-left of the left page. */
+  blockStart: { page: number; index: number };
+  /** Place a block of card pieces (blockRows × blockCols) starting at blockStart. */
+  onPlaceBlock: (blockRows: number, blockCols: number, imageIds: string[]) => void;
 };
 
-export function UploadPanel({ rows, cols, onPlaceImage, onSetArt }: UploadHandlers) {
+/** Block sizes as [columns, rows] (wide × tall). */
+const BLOCKS: [number, number][] = [
+  [2, 1], [1, 2], [2, 2], [3, 1], [1, 3], [3, 2], [2, 3], [3, 3], [4, 2], [2, 4], [4, 3], [3, 4], [4, 4],
+];
+
+function BlockIcon({ w, h, active }: { w: number; h: number; active: boolean }) {
+  return (
+    <span className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${w}, 6px)` }}>
+      {Array.from({ length: w * h }, (_, i) => (
+        <span key={i} className={`h-[8px] w-[6px] rounded-[1px] ${active ? "bg-black" : "bg-white/50"}`} />
+      ))}
+    </span>
+  );
+}
+
+export function UploadPanel({ rows, cols, onPlaceImage, onSetArt, blockStart, onPlaceBlock }: UploadHandlers) {
   const single = useRef<HTMLInputElement>(null);
+  const blockInput = useRef<HTMLInputElement>(null);
+  const fits = BLOCKS.filter(([w, h]) => w <= cols && h <= rows);
+  const [block, setBlock] = useState<[number, number]>([2, 2]);
+  const [bw, bh] = fits.some(([w, h]) => w === block[0] && h === block[1]) ? block : (fits[0] ?? [1, 1]);
   const split = useRef<HTMLInputElement>(null);
   const [side, setSide] = useState<0 | 1>(0);
   const [busy, setBusy] = useState(false);
@@ -60,6 +83,63 @@ export function UploadPanel({ rows, cols, onPlaceImage, onSetArt }: UploadHandle
           className="w-full rounded-md bg-amber-400 py-2 font-semibold text-black hover:bg-amber-300 disabled:opacity-50"
         >
           Upload image(s)
+        </button>
+      </section>
+
+      <section className="space-y-2 rounded-lg border border-white/10 bg-black/20 p-3">
+        <h3 className="font-semibold">Cut an image into cards</h3>
+        <p className="text-white/60">
+          Pick a size. Your image is cropped and cut into that many card pieces that line up into one picture. Each
+          piece is its own card you can move or remove.
+        </p>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Block size">
+          {fits.map(([w, h]) => {
+            const active = w === bw && h === bh;
+            return (
+              <button
+                key={`${w}x${h}`}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                aria-label={`${w} wide by ${h} tall`}
+                onClick={() => setBlock([w, h])}
+                className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
+                  active ? "border-amber-400 bg-amber-400 font-semibold text-black" : "border-white/10 text-white/70"
+                }`}
+              >
+                <BlockIcon w={w} h={h} active={active} />
+                {w}×{h}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-white/50">
+          Goes on page {blockStart.page + 1} starting at pocket {blockStart.index + 1}. Click a pocket first to choose
+          where. Cards already there are replaced.
+        </p>
+        <input
+          ref={blockInput}
+          type="file"
+          accept="image/*"
+          hidden
+          data-testid="upload-block"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f)
+              run(async () => {
+                const pieces = await splitAcrossPage(f, bh, bw);
+                onPlaceBlock(bh, bw, await Promise.all(pieces.map(saveImage)));
+              });
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => blockInput.current?.click()}
+          className="w-full rounded-md bg-amber-400 py-2 font-semibold text-black hover:bg-amber-300 disabled:opacity-50"
+        >
+          {busy ? "Processing…" : `Upload & cut into ${bw * bh} cards`}
         </button>
       </section>
 

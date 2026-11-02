@@ -28,6 +28,8 @@ export type PageArt = {
   /** -0.5 … 0.5 */
   x: number;
   y: number;
+  /** Pockets where the art has been removed */
+  hidden?: number[];
 };
 
 export type Slot = CardSlot | CustomSlot | null;

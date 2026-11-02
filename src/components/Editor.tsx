@@ -114,7 +114,13 @@ function Page({
               index={i}
               slot={slot}
               style={{ left: `${(r.x / W) * 100}%`, top: `${(r.y / H) * 100}%`, width: `${(r.w / W) * 100}%`, height: `${(r.h / H) * 100}%` }}
-              art={art && artUrl ? { url: artUrl, style: artStyleForPocket(art, binder.rows, binder.cols, i) } : undefined}
+              art={
+                art && artUrl && !art.hidden?.includes(i)
+                  ? { url: artUrl, style: artStyleForPocket(art, binder.rows, binder.cols, i) }
+                  : undefined
+              }
+              artRemoved={!!art?.hidden?.includes(i)}
+              onToggleArt={art ? () => actions.toggleArtPocket(page, i) : undefined}
               selected={sel?.page === page && sel.index === i}
               onSelect={() => setSel({ page, index: i })}
               price={priceOf(slot)}
@@ -286,6 +292,7 @@ export function Editor() {
     return info?.price ? formatPrice(info.price, info.currency) : undefined;
   };
   const selSlot = sel ? binder.pages[sel.page]?.[sel.index] : null;
+  const selArt = sel ? binder.art?.[sel.page] : null;
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
@@ -401,6 +408,12 @@ export function Editor() {
               }}
               onPlaceImage={(imageId) => place({ kind: "custom", imageId })}
               onSetArt={(side, art) => actions.setArt(left + side, art)}
+              blockStart={sel ?? { page: left, index: 0 }}
+              onPlaceBlock={(rows, cols, ids) => {
+                const start = sel ?? { page: left, index: 0 };
+                actions.placeBlock(start.page, start.index, rows, cols, ids.map((imageId) => ({ kind: "custom", imageId })));
+                setSel(null);
+              }}
             />
           </aside>
 
@@ -423,12 +436,12 @@ export function Editor() {
                 Whole binder missing
               </button>
             </div>
-            {sel && selSlot ? (
+            {sel && (selSlot || selArt) ? (
               <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
                 <span className="text-white/50">
                   Pocket {sel.index + 1}, page {sel.page + 1}:
                 </span>
-                {selSlot.kind === "card" && (
+                {selSlot?.kind === "card" && (
                   <button
                     type="button"
                     onClick={() => actions.toggleMissing(sel.page, sel.index)}
@@ -437,20 +450,34 @@ export function Editor() {
                     {selSlot.missing ? "Mark as owned" : "Mark as missing"}
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => actions.toggleFlip(sel.page, sel.index)}
-                  className="rounded-md border border-white/15 px-2 py-1 hover:bg-white/10"
-                >
-                  {selSlot.flipped ? "Flip back" : "Flip upside down"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => actions.setSlot(sel.page, sel.index, null)}
-                  className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
-                >
-                  Remove
-                </button>
+                {selSlot && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => actions.toggleFlip(sel.page, sel.index)}
+                      className="rounded-md border border-white/15 px-2 py-1 hover:bg-white/10"
+                    >
+                      {selSlot.flipped ? "Flip back" : "Flip upside down"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => actions.setSlot(sel.page, sel.index, null)}
+                      className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
+                    >
+                      Remove card
+                    </button>
+                  </>
+                )}
+                {selArt && (
+                  <button
+                    type="button"
+                    onClick={() => actions.toggleArtPocket(sel.page, sel.index)}
+                    className="rounded-md border border-white/15 px-2 py-1 hover:bg-white/10"
+                  >
+                    {selArt.hidden?.includes(sel.index) ? "Put art back here" : "Remove art here"}
+                  </button>
+                )}
+                {!selSlot && <span className="text-white/40">or click a card in the list to place it on top</span>}
                 <button type="button" onClick={() => setSel(null)} className="px-2 py-1 text-white/50 hover:text-white">
                   Done
                 </button>
@@ -459,7 +486,9 @@ export function Editor() {
               <p className="text-center text-xs text-white/40">
                 {sel
                   ? `Pocket ${sel.index + 1} on page ${sel.page + 1} selected: click a card to put it there.`
-                  : "Drag cards into pockets, or click a pocket and then click a card. Hover a card: ? marks it missing, × removes it."}
+                  : binder.art?.[left] || binder.art?.[left + 1]
+                    ? "Cards go on top of the art: drag a card onto any pocket, or click a pocket then a card. Hover an empty pocket and click × to remove its art."
+                    : "Drag cards into pockets, or click a pocket and then click a card. Hover a card: ? marks it missing, × removes it."}
               </p>
             )}
             <div

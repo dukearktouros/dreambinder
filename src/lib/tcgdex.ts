@@ -13,7 +13,7 @@ export type SetDetail = SetBrief & { cards: CardBrief[]; releaseDate?: string };
 
 export const cardImage = (base: string, quality: "low" | "high" = "low") => `${base}/${quality}.webp`;
 
-async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+export async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(BASE + path, { signal });
   if (!res.ok) throw new Error(`Card API error (${res.status})`);
   return res.json() as Promise<T>;
@@ -41,6 +41,11 @@ const isOnlineSet = (id: string, known: Set<string>) => ONLINE_SET_ID.test(id) |
 const isOnlineCard = (cardId: string, known: Set<string>) =>
   ONLINE_CARD_ID.test(cardId) || [...known].some((id) => cardId.startsWith(id + "-"));
 
+/** False for cards from online-only sets. */
+export async function isPhysicalCard(cardId: string) {
+  return !isOnlineCard(cardId, await onlineOnlySetIds());
+}
+
 /** Search by card name — covers Pokémon and trainers ("Pikachu", "Misty", "Charizard ex"). */
 export async function searchCards(name: string, signal?: AbortSignal) {
   const [cards, online] = await Promise.all([
@@ -52,9 +57,15 @@ export async function searchCards(name: string, signal?: AbortSignal) {
     .slice(0, 200);
 }
 
-export async function listSets(signal?: AbortSignal) {
-  const [sets, online] = await Promise.all([get<SetBrief[]>("/sets", signal), onlineOnlySetIds()]);
-  return sets.filter((s) => !isOnlineSet(s.id, online)).reverse(); // newest first
+let allSets: Promise<SetBrief[]> | null = null;
+export async function listSets() {
+  allSets ??= Promise.all([get<SetBrief[]>("/sets"), onlineOnlySetIds()])
+    .then(([sets, online]) => sets.filter((s) => !isOnlineSet(s.id, online)).reverse()) // newest first
+    .catch((e) => {
+      allSets = null;
+      throw e;
+    });
+  return allSets;
 }
 
 type TcgPlayerVariant = { marketPrice?: number; midPrice?: number; lowPrice?: number };

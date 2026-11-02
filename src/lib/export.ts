@@ -72,7 +72,8 @@ export async function exportSpread(binder: Binder, firstPage: number) {
       roundRect(ctx, x, y, w, h, 3 * PX);
       ctx.clip();
       const img = images[i];
-      if (art && artImg) {
+      const artHere = !!(art && artImg && !art.hidden?.includes(i));
+      if (art && artImg && artHere) {
         const r = artSourceRect(art, rows, cols, i);
         ctx.drawImage(artImg, r.sx, r.sy, r.sw, r.sh, x, y, w, h);
       }
@@ -83,7 +84,7 @@ export async function exportSpread(binder: Binder, firstPage: number) {
           ctx.rotate(Math.PI);
           ctx.drawImage(img, -w / 2, -h / 2, w, h);
         } else ctx.drawImage(img, x, y, w, h);
-      } else if (!artImg || slot) {
+      } else if (!artHere || slot) {
         ctx.fillStyle = slot ? "#3f3f46" : "#232329";
         ctx.fillRect(x, y, w, h);
         if (slot?.kind === "card") {

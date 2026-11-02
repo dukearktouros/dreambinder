@@ -110,6 +110,20 @@ export function useBinders() {
         return { ...b, pages };
       }),
 
+    /**
+     * Place a block of slots (blockRows × blockCols, reading order) starting at a pocket.
+     * The block is moved left/up if it would run off the page.
+     */
+    placeBlock: (page: number, start: number, blockRows: number, blockCols: number, slots: Slot[]) =>
+      update((b) => {
+        const pages = withPages(b, page);
+        const c0 = Math.max(0, Math.min(start % b.cols, b.cols - blockCols));
+        const r0 = Math.max(0, Math.min(Math.floor(start / b.cols), b.rows - blockRows));
+        for (let r = 0; r < blockRows; r++)
+          for (let c = 0; c < blockCols; c++) pages[page][(r0 + r) * b.cols + c0 + c] = slots[r * blockCols + c] ?? null;
+        return { ...b, pages };
+      }),
+
     setGrid: (rows: number, cols: number) =>
       update((b) => ({ ...b, rows, cols, pages: paginate(b.pages.flat(), rows * cols) })),
 
@@ -138,6 +152,19 @@ export function useBinders() {
         if (!cur) return b;
         const list = [...b.art!];
         list[page] = { ...cur, ...change };
+        return { ...b, art: list };
+      }),
+
+    /** Remove the art from one pocket, or bring it back. */
+    toggleArtPocket: (page: number, index: number) =>
+      update((b) => {
+        const cur = b.art?.[page];
+        if (!cur) return b;
+        const hidden = new Set(cur.hidden ?? []);
+        if (hidden.has(index)) hidden.delete(index);
+        else hidden.add(index);
+        const list = [...b.art!];
+        list[page] = { ...cur, hidden: [...hidden] };
         return { ...b, art: list };
       }),
 

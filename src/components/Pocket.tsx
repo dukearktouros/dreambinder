@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useDndContext, useDraggable, useDroppable } from "@dnd-kit/core";
 import { cardImage } from "@/lib/tcgdex";
 import { loadImage } from "@/lib/image";
 import type { DragData, Slot } from "@/lib/types";
@@ -45,6 +45,10 @@ type Props = {
   style?: CSSProperties;
   /** This pocket's piece of the page background art */
   art?: { url: string; style: CSSProperties };
+  /** Page has art but it was removed from this pocket */
+  artRemoved?: boolean;
+  /** Remove / restore the art in this pocket */
+  onToggleArt?: () => void;
   onSelect: () => void;
   onClear: () => void;
   onToggleMissing: () => void;
@@ -58,7 +62,21 @@ const stop = (fn: () => void) => ({
   },
 });
 
-export function Pocket({ page, index, slot, selected, price, style, art, onSelect, onClear, onToggleMissing }: Props) {
+export function Pocket({
+  page,
+  index,
+  slot,
+  selected,
+  price,
+  style,
+  art,
+  artRemoved,
+  onToggleArt,
+  onSelect,
+  onClear,
+  onToggleMissing,
+}: Props) {
+  const dragging = !!useDndContext().active;
   const drop = useDroppable({ id: `drop:${page}:${index}`, data: { type: "slot", page, index } });
   const drag = useDraggable({
     id: `drag:${page}:${index}`,
@@ -73,7 +91,8 @@ export function Pocket({ page, index, slot, selected, price, style, art, onSelec
       data-testid={`pocket-${page}-${index}`}
       style={style}
       className={`group absolute cursor-pointer rounded-md transition
-        ${art ? "" : "border"} ${drop.isOver ? "border-amber-300 bg-amber-300/20" : "border-white/10 bg-black/25"}
+        ${art ? "" : artRemoved ? "border border-dashed" : "border"}
+        ${drop.isOver ? "border-amber-300 bg-amber-300/20" : "border-white/10 bg-black/25"}
         ${selected ? "z-10 ring-2 ring-amber-400 ring-offset-2 ring-offset-transparent" : ""}`}
     >
       {art && (
@@ -82,6 +101,28 @@ export function Pocket({ page, index, slot, selected, price, style, art, onSelec
         </div>
       )}
       {drop.isOver && art && <div className="pointer-events-none absolute inset-0 z-10 rounded-[4.5%] bg-amber-300/30" />}
+      {/* While dragging, outline art pockets so it's clear cards can go on top */}
+      {dragging && art && !drop.isOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 rounded-[4.5%] border-2 border-dashed border-amber-300/80" />
+      )}
+      {!slot && art && !dragging && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[4.5%] bg-black/0 opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100">
+          <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">+ Add card</span>
+        </div>
+      )}
+      {!slot && onToggleArt && (
+        <button
+          type="button"
+          aria-label={art ? "Remove art from this pocket" : "Put the art back in this pocket"}
+          title={art ? "Remove art from this pocket" : "Put the art back in this pocket"}
+          {...stop(onToggleArt)}
+          className={`absolute -right-2 -top-2 z-20 hidden h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white shadow group-hover:flex ${
+            art ? "bg-red-600" : "bg-zinc-600"
+          }`}
+        >
+          {art ? "×" : "↺"}
+        </button>
+      )}
       {slot ? (
         <div
           ref={drag.setNodeRef}
@@ -122,7 +163,11 @@ export function Pocket({ page, index, slot, selected, price, style, art, onSelec
           </button>
         </div>
       ) : (
-        !art && <div className="flex h-full items-center justify-center text-xl text-white/15">+</div>
+        !art && (
+          <div className="flex h-full items-center justify-center text-xl text-white/15">
+            {artRemoved ? <span className="text-[10px]">art removed</span> : "+"}
+          </div>
+        )
       )}
     </div>
   );

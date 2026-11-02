@@ -23,7 +23,11 @@ For developers: `npm install`, then `npm run dev`.
 - Click a pocket, then click cards to fill pockets in order (works well on phones)
 - 4, 9, 12 and 16-pocket layouts, add or remove pages, binder cover colours
 - **Free custom uploads:** a single card-sized image, or **background art** behind a whole page: cards sit on top and empty pockets show the art (zoom and move it with "Adjust art")
+- Remove the background art from single pockets (hover an empty pocket → **×**, or click it → **Remove art here**)
+- **Cut an image into cards:** pick a block size (2×1, 2×2, 2×3, 3×3 …) and the image is cut into that many card pieces, placed from the selected pocket
 - Flip any card upside down (click it, then **Flip upside down**)
+- **Chase cards first:** search and set results put SIRs, gold/hyper rares, illustration rares and alt arts at the top, with rarity badges
+- **Name suggestions** while typing in search (Pokémon and trainers)
 - "Make binder from set" creates a complete set binder in one click
 - Several binders, autosaved in the browser (localStorage, with images in IndexedDB)
 - Export a two-page spread as a PNG to share on Discord or social media
