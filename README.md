@@ -24,6 +24,10 @@ For developers: `npm install`, then `npm run dev`.
 - "Make binder from set" creates a complete set binder in one click
 - Several binders, autosaved in the browser (localStorage, with images in IndexedDB)
 - Export a two-page spread as a PNG to share on Discord or social media
+- **Market prices** on every card (TCGplayer market price in USD, Cardmarket in EUR when TCGplayer has none), plus binder value and "cost to complete"
+- **Missing cards:** mark cards you still need (hover a card and click **?**, or click it and use the buttons above the binder)
+- **Export PDF:** a printable want list (missing cards only) or full checklist with tick boxes, set, number and price, for card shows
+- Online-only sets (Pokémon TCG Pocket) are hidden, so only cards that exist as physical cards show up
 
 ## Code map
 
@@ -33,6 +37,8 @@ For developers: `npm install`, then `npm run dev`.
 | `src/lib/image.ts` | Crop and split uploads, image storage |
 | `src/lib/store.ts` | Binder state and saving |
 | `src/lib/export.ts` | PNG export |
+| `src/lib/pdf.ts` | PDF want list / checklist |
+| `src/lib/prices.ts` | Card prices, set names and numbers (cached for a day) |
 | `src/components/Editor.tsx` | Main screen: binder spread, drag and drop |
 | `src/components/Library.tsx` | Search, sets and upload tabs |
 

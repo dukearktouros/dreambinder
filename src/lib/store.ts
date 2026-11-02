@@ -118,6 +118,24 @@ export function useBinders() {
         b.pages.length <= 2 ? b : { ...b, pages: b.pages.filter((_, i) => i !== firstPage && i !== firstPage + 1) },
       ),
 
+    /** Flip a card between owned and missing. */
+    toggleMissing: (page: number, index: number) =>
+      update((b) => {
+        const pages = withPages(b, page);
+        const s = pages[page][index];
+        if (s?.kind === "card") pages[page][index] = { ...s, missing: !s.missing };
+        return { ...b, pages };
+      }),
+
+    /** Mark every card on the given pages (or the whole binder) as missing or owned. */
+    setMissing: (missing: boolean, onlyPages?: number[]) =>
+      update((b) => ({
+        ...b,
+        pages: b.pages.map((p, i) =>
+          onlyPages && !onlyPages.includes(i) ? p : p.map((s) => (s?.kind === "card" ? { ...s, missing } : s)),
+        ),
+      })),
+
     rename: (name: string) => update((b) => ({ ...b, name })),
     setCover: (cover: string) => update((b) => ({ ...b, cover })),
 

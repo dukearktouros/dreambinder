@@ -4,6 +4,8 @@ export type CardSlot = {
   name: string;
   /** TCGdex image base URL (append /low.webp or /high.webp) */
   image: string;
+  /** Card is wanted but not owned yet */
+  missing?: boolean;
 };
 
 export type CustomSlot = {

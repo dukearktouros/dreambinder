@@ -10,9 +10,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { useBinders } from "@/lib/store";
+import { useBinders, type BinderActions } from "@/lib/store";
 import { COVER_COLORS, GRID_PRESETS, type Binder, type DragData, type DropData, type Slot } from "@/lib/types";
 import { exportSpread } from "@/lib/export";
+import { exportPdf } from "@/lib/pdf";
+import { formatPrice, formatTotal, useCardInfo, type CardInfo } from "@/lib/prices";
 import { Pocket, SlotImage } from "./Pocket";
 import { Library } from "./Library";
 
@@ -37,13 +39,15 @@ function Page({
   page,
   sel,
   setSel,
-  setSlot,
+  actions,
+  priceOf,
 }: {
   binder: Binder;
   page: number;
   sel: Sel;
   setSel: (s: Sel) => void;
-  setSlot: (page: number, index: number, slot: Slot) => void;
+  actions: BinderActions;
+  priceOf: (slot: Slot) => string | undefined;
 }) {
   const slots = binder.pages[page];
   if (!slots) return null;
@@ -58,11 +62,97 @@ function Page({
             slot={slot}
             selected={sel?.page === page && sel.index === i}
             onSelect={() => setSel(sel?.page === page && sel.index === i ? null : { page, index: i })}
-            onClear={() => setSlot(page, i, null)}
+            price={priceOf(slot)}
+            onClear={() => actions.setSlot(page, i, null)}
+            onToggleMissing={() => actions.toggleMissing(page, i)}
           />
         ))}
       </div>
       <p className="mt-2 text-center text-xs text-white/30">Page {page + 1}</p>
+    </div>
+  );
+}
+
+function PdfDialog({ binder, onClose }: { binder: Binder; onClose: () => void }) {
+  const [onlyMissing, setOnlyMissing] = useState(binder.pages.flat().some((s) => s?.kind === "card" && s.missing));
+  const [pictures, setPictures] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-label="Export PDF"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm space-y-4 rounded-xl border border-white/10 bg-zinc-900 p-5 text-sm shadow-2xl"
+      >
+        <h2 className="text-lg font-bold">Export PDF</h2>
+        <p className="text-white/60">A printable list with tick boxes, set, card number and price. Handy at card shows.</p>
+        <fieldset className="space-y-2">
+          <label className="flex items-center gap-2">
+            <input type="radio" checked={onlyMissing} onChange={() => setOnlyMissing(true)} />
+            Want list: only missing cards
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" checked={!onlyMissing} onChange={() => setOnlyMissing(false)} />
+            Checklist: every card in the binder
+          </label>
+        </fieldset>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={pictures} onChange={(e) => setPictures(e.target.checked)} />
+          Include card pictures
+        </label>
+        {error && <p className="text-red-400">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 hover:bg-white/10">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(undefined);
+              try {
+                await exportPdf(binder, { onlyMissing, pictures });
+                onClose();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Export failed");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="rounded-md bg-amber-400 px-3 py-1.5 font-semibold text-black hover:bg-amber-300 disabled:opacity-50"
+          >
+            {busy ? "Making PDF…" : "Download PDF"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stats({ binder, infos }: { binder: Binder; infos: Record<string, CardInfo> }) {
+  const cards = binder.pages.flat().filter((s) => s?.kind === "card");
+  const missing = cards.filter((s) => s.missing);
+  const loading = cards.some((s) => !infos[s.cardId]);
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm" data-testid="stats">
+      <span>
+        <b>{cards.length}</b> <span className="text-white/50">cards</span>
+      </span>
+      <span>
+        <b className="text-red-400">{missing.length}</b> <span className="text-white/50">missing</span>
+      </span>
+      <span>
+        <span className="text-white/50">Value </span>
+        <b className="text-emerald-300">{formatTotal(cards.map((s) => infos[s.cardId]))}</b>
+      </span>
+      <span>
+        <span className="text-white/50">To complete </span>
+        <b className="text-amber-300">{formatTotal(missing.map((s) => infos[s.cardId]))}</b>
+      </span>
+      {loading && <span className="text-xs text-white/40">loading prices…</span>}
     </div>
   );
 }
@@ -73,6 +163,9 @@ export function Editor() {
   const [sel, setSel] = useState<Sel>(null);
   const [dragging, setDragging] = useState<DragData | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showPrices, setShowPrices] = useState(true);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const infos = useCardInfo(binder?.pages.flat().flatMap((s) => (s?.kind === "card" ? [s.cardId] : [])) ?? []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   if (!ready || !binder) return <div className="p-10 text-center text-white/50">Loading your binders…</div>;
@@ -126,6 +219,11 @@ export function Editor() {
   }
 
   const gridValue = `${binder.rows}x${binder.cols}`;
+  const priceOf = (slot: Slot) => {
+    const info = slot?.kind === "card" && showPrices ? infos[slot.cardId] : undefined;
+    return info?.price ? formatPrice(info.price, info.currency) : undefined;
+  };
+  const selSlot = sel ? binder.pages[sel.page]?.[sel.index] : null;
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
@@ -211,6 +309,13 @@ export function Editor() {
           </button>
           <button
             type="button"
+            onClick={() => setPdfOpen(true)}
+            className="rounded-md bg-amber-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-amber-300"
+          >
+            Export PDF
+          </button>
+          <button
+            type="button"
             onClick={() => confirm(`Delete "${binder.name}"? This can't be undone.`) && actions.deleteBinder(binder.id)}
             className="rounded-md px-2 py-1.5 text-sm text-red-400 hover:bg-red-500/10"
           >
@@ -237,18 +342,62 @@ export function Editor() {
 
           {/* Binder */}
           <main className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto p-4 sm:p-6">
-            <p className="text-center text-xs text-white/40">
-              {sel
-                ? `Pocket ${sel.index + 1} on page ${sel.page + 1} selected: click a card to put it there.`
-                : "Drag cards into pockets, or click a pocket and then click a card."}
-            </p>
+            <Stats binder={binder} infos={infos} />
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+              <label className="flex items-center gap-1.5 text-white/60">
+                <input type="checkbox" checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} />
+                Show prices
+              </label>
+              <span className="text-white/20">|</span>
+              <button type="button" onClick={() => actions.setMissing(true, [left, left + 1])} className="text-white/60 hover:text-white">
+                Mark these pages missing
+              </button>
+              <button type="button" onClick={() => actions.setMissing(false, [left, left + 1])} className="text-white/60 hover:text-white">
+                Mark these pages owned
+              </button>
+              <button type="button" onClick={() => actions.setMissing(true)} className="text-white/60 hover:text-white">
+                Whole binder missing
+              </button>
+            </div>
+            {sel && selSlot ? (
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+                <span className="text-white/50">
+                  Pocket {sel.index + 1}, page {sel.page + 1}:
+                </span>
+                {selSlot.kind === "card" && (
+                  <button
+                    type="button"
+                    onClick={() => actions.toggleMissing(sel.page, sel.index)}
+                    className="rounded-md border border-white/15 px-2 py-1 hover:bg-white/10"
+                  >
+                    {selSlot.missing ? "Mark as owned" : "Mark as missing"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => actions.setSlot(sel.page, sel.index, null)}
+                  className="rounded-md border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
+                >
+                  Remove
+                </button>
+                <button type="button" onClick={() => setSel(null)} className="px-2 py-1 text-white/50 hover:text-white">
+                  Done
+                </button>
+              </div>
+            ) : (
+              <p className="text-center text-xs text-white/40">
+                {sel
+                  ? `Pocket ${sel.index + 1} on page ${sel.page + 1} selected: click a card to put it there.`
+                  : "Drag cards into pockets, or click a pocket and then click a card. Hover a card: ? marks it missing, × removes it."}
+              </p>
+            )}
             <div
               className="flex w-full max-w-6xl flex-col gap-3 rounded-2xl p-3 shadow-2xl sm:flex-row sm:p-5"
               style={{ background: binder.cover }}
             >
-              <Page binder={binder} page={left} sel={sel} setSel={setSel} setSlot={actions.setSlot} />
+              <Page binder={binder} page={left} sel={sel} setSel={setSel} actions={actions} priceOf={priceOf} />
               <div className="hidden w-3 rounded-full bg-black/30 sm:block" />
-              <Page binder={binder} page={left + 1} sel={sel} setSel={setSel} setSlot={actions.setSlot} />
+              <Page binder={binder} page={left + 1} sel={sel} setSel={setSel} actions={actions} priceOf={priceOf} />
             </div>
 
             <nav className="flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -304,6 +453,7 @@ export function Editor() {
         </div>
       </div>
 
+      {pdfOpen && <PdfDialog binder={binder} onClose={() => setPdfOpen(false)} />}
       <DragOverlay dropAnimation={null}>
         {dragging && (
           <div className="w-24 rotate-3 drop-shadow-2xl">
