@@ -12,6 +12,8 @@ A free Pokémon card binder planner. Search every card, drag them into binder pa
 A window opens (leave it open, that's DreamBinder running) and your browser opens **http://localhost:3000**.
 The first start takes a minute or two. Your binders are saved in your browser.
 
+**Updates are automatic:** every time you double-click Start, it downloads whatever changed on GitHub and rebuilds. If you're offline, it just starts the version you have.
+
 For developers: `npm install`, then `npm run dev`.
 
 ## What works (Phase 1)
