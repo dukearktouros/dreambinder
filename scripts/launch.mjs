@@ -63,10 +63,20 @@ async function stopOldCopy() {
     );
     pids.forEach((pid) => spawnSync("taskkill", ["/F", "/T", "/PID", pid]));
   } else {
-    const out = spawnSync("lsof", ["-ti", `tcp:${PORT}`, "-sTCP:LISTEN"], { encoding: "utf8" }).stdout ?? "";
-    out.split("\n").filter(Boolean).forEach((pid) => {
+    let pids = (spawnSync("lsof", ["-ti", `tcp:${PORT}`, "-sTCP:LISTEN"], { encoding: "utf8" }).stdout ?? "")
+      .split("\n")
+      .filter(Boolean);
+    if (!pids.length) {
+      // lsof unavailable: fall back to finding the Next.js server process by name
+      const ps = spawnSync("ps", ["-axo", "pid=,command="], { encoding: "utf8" }).stdout ?? "";
+      pids = ps
+        .split("\n")
+        .filter((l) => /next-server|next start/.test(l))
+        .map((l) => l.trim().split(/\s+/)[0]);
+    }
+    pids.forEach((pid) => {
       try {
-        process.kill(Number(pid));
+        if (Number(pid) !== process.pid) process.kill(Number(pid));
       } catch {}
     });
   }
