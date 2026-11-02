@@ -11,8 +11,6 @@ const BRANCH = "main";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 /** Folders fully managed by the updater: local files that no longer exist on GitHub get deleted. */
 const MANAGED_DIRS = ["src", "scripts", "public"];
-/** Marker telling launch.mjs to reinstall and rebuild. */
-const MARKER = join(ROOT, ".needs-rebuild");
 
 const isWindowsText = (path) => path.endsWith(".bat");
 const toLF = (buf) => Buffer.from(buf.toString("utf8").replace(/\r\n/g, "\n"));
@@ -88,7 +86,6 @@ async function main() {
   }
   for (const path of removed) rmSync(join(ROOT, path), { force: true });
 
-  writeFileSync(MARKER, tree.sha);
   console.log(`Updated ${changed.length + removed.length} file(s) to the latest version.`);
 }
 

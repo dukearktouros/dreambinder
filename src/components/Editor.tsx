@@ -17,6 +17,7 @@ import { exportPdf } from "@/lib/pdf";
 import { formatPrice, formatTotal, useCardInfo, type CardInfo } from "@/lib/prices";
 import { Pocket, SlotImage } from "./Pocket";
 import { Library } from "./Library";
+import pkg from "../../package.json";
 
 type Sel = { page: number; index: number } | null;
 
@@ -230,7 +231,9 @@ export function Editor() {
       <div className="flex min-h-screen flex-col lg:h-screen">
         {/* Top bar */}
         <header className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-black/40 px-4 py-3">
-          <span className="mr-2 text-lg font-black tracking-tight text-amber-300">DreamBinder</span>
+          <span className="mr-2 text-lg font-black tracking-tight text-amber-300">
+            DreamBinder <span className="align-middle text-xs font-medium text-white/40">v{pkg.version}</span>
+          </span>
           <select
             value={binder.id}
             onChange={(e) => {
