@@ -6,12 +6,28 @@ export type CardSlot = {
   image: string;
   /** Card is wanted but not owned yet */
   missing?: boolean;
+  /** Shown upside down */
+  flipped?: boolean;
 };
 
 export type CustomSlot = {
   kind: "custom";
   /** Key of the image stored in IndexedDB */
   imageId: string;
+  flipped?: boolean;
+};
+
+/** Background artwork behind a whole page. Cards sit on top; empty pockets show the art. */
+export type PageArt = {
+  imageId: string;
+  /** Natural image size in px */
+  w: number;
+  h: number;
+  /** 1 = just covers the page */
+  zoom: number;
+  /** -0.5 … 0.5 */
+  x: number;
+  y: number;
 };
 
 export type Slot = CardSlot | CustomSlot | null;
@@ -23,6 +39,8 @@ export type Binder = {
   cols: number;
   cover: string;
   pages: Slot[][];
+  /** Background art per page index (same order as pages) */
+  art?: (PageArt | null)[];
   updatedAt: number;
 };
 

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -11,11 +11,12 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useBinders, type BinderActions } from "@/lib/store";
-import { COVER_COLORS, GRID_PRESETS, type Binder, type DragData, type DropData, type Slot } from "@/lib/types";
+import { COVER_COLORS, GRID_PRESETS, type Binder, type DragData, type DropData, type PageArt, type Slot } from "@/lib/types";
+import { artStyleForPocket, pageSize, pocketRect } from "@/lib/art";
 import { exportSpread } from "@/lib/export";
 import { exportPdf } from "@/lib/pdf";
 import { formatPrice, formatTotal, useCardInfo, type CardInfo } from "@/lib/prices";
-import { Pocket, SlotImage } from "./Pocket";
+import { Pocket, SlotImage, useCustomImage } from "./Pocket";
 import { Library } from "./Library";
 import pkg from "../../package.json";
 
@@ -35,6 +36,48 @@ function Trash() {
   );
 }
 
+function ArtControls({ page, art, actions }: { page: number; art: PageArt; actions: BinderActions }) {
+  const [open, setOpen] = useState(false);
+  const slider = (label: string, key: "zoom" | "x" | "y", min: number, max: number) => (
+    <label className="flex items-center gap-2">
+      <span className="w-14 text-white/50">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={0.01}
+        value={art[key]}
+        aria-label={`Art ${label}`}
+        onChange={(e) => actions.adjustArt(page, { [key]: Number(e.target.value) })}
+        className="flex-1 accent-amber-400"
+      />
+    </label>
+  );
+  return (
+    <div className="mt-2 text-xs">
+      <div className="flex justify-center gap-3">
+        <button type="button" onClick={() => setOpen(!open)} className="text-amber-300 hover:underline">
+          {open ? "Done adjusting" : "Adjust art"}
+        </button>
+        <button
+          type="button"
+          onClick={() => confirm("Remove the background art from this page?") && actions.setArt(page, null)}
+          className="text-red-400 hover:underline"
+        >
+          Remove art
+        </button>
+      </div>
+      {open && (
+        <div className="mx-auto mt-2 max-w-xs space-y-1">
+          {slider("Zoom", "zoom", 1, 3)}
+          {slider("Left/right", "x", -0.5, 0.5)}
+          {slider("Up/down", "y", -0.5, 0.5)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Page({
   binder,
   page,
@@ -50,25 +93,38 @@ function Page({
   actions: BinderActions;
   priceOf: (slot: Slot) => string | undefined;
 }) {
+  const art = binder.art?.[page] ?? null;
+  const artUrl = useCustomImage(art?.imageId);
   const slots = binder.pages[page];
   if (!slots) return null;
+  const { W, H } = pageSize(binder.rows, binder.cols);
   return (
     <div className="flex-1 rounded-xl bg-zinc-900/95 p-3 shadow-inner sm:p-4">
-      <div className="grid gap-2 sm:gap-3" style={{ gridTemplateColumns: `repeat(${binder.cols}, minmax(0, 1fr))` }}>
-        {slots.map((slot, i) => (
-          <Pocket
-            key={i}
-            page={page}
-            index={i}
-            slot={slot}
-            selected={sel?.page === page && sel.index === i}
-            onSelect={() => setSel(sel?.page === page && sel.index === i ? null : { page, index: i })}
-            price={priceOf(slot)}
-            onClear={() => actions.setSlot(page, i, null)}
-            onToggleMissing={() => actions.toggleMissing(page, i)}
-          />
-        ))}
+      {/* Pockets sit at their real positions (mm), so background art lines up across the gaps */}
+      <div
+        className="relative mx-auto"
+        style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(72vh * ${W / H}))` }}
+      >
+        {slots.map((slot, i) => {
+          const r = pocketRect(i, binder.cols);
+          return (
+            <Pocket
+              key={i}
+              page={page}
+              index={i}
+              slot={slot}
+              style={{ left: `${(r.x / W) * 100}%`, top: `${(r.y / H) * 100}%`, width: `${(r.w / W) * 100}%`, height: `${(r.h / H) * 100}%` }}
+              art={art && artUrl ? { url: artUrl, style: artStyleForPocket(art, binder.rows, binder.cols, i) } : undefined}
+              selected={sel?.page === page && sel.index === i}
+              onSelect={() => setSel({ page, index: i })}
+              price={priceOf(slot)}
+              onClear={() => actions.setSlot(page, i, null)}
+              onToggleMissing={() => actions.toggleMissing(page, i)}
+            />
+          );
+        })}
       </div>
+      {art && <ArtControls page={page} art={art} actions={actions} />}
       <p className="mt-2 text-center text-xs text-white/30">Page {page + 1}</p>
     </div>
   );
@@ -168,6 +224,11 @@ export function Editor() {
   const [pdfOpen, setPdfOpen] = useState(false);
   const infos = useCardInfo(binder?.pages.flat().flatMap((s) => (s?.kind === "card" ? [s.cardId] : [])) ?? []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSel(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (!ready || !binder) return <div className="p-10 text-center text-white/50">Loading your binders…</div>;
 
@@ -339,7 +400,7 @@ export function Editor() {
                 setSel(null);
               }}
               onPlaceImage={(imageId) => place({ kind: "custom", imageId })}
-              onSplitImage={(side, ids) => actions.fillPage(left + side, ids.map((imageId) => ({ kind: "custom", imageId })))}
+              onSetArt={(side, art) => actions.setArt(left + side, art)}
             />
           </aside>
 
@@ -376,6 +437,13 @@ export function Editor() {
                     {selSlot.missing ? "Mark as owned" : "Mark as missing"}
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => actions.toggleFlip(sel.page, sel.index)}
+                  className="rounded-md border border-white/15 px-2 py-1 hover:bg-white/10"
+                >
+                  {selSlot.flipped ? "Flip back" : "Flip upside down"}
+                </button>
                 <button
                   type="button"
                   onClick={() => actions.setSlot(sel.page, sel.index, null)}

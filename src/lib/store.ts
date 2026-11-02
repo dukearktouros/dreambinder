@@ -1,7 +1,7 @@
 "use client";
 // Binder state, saved to localStorage (custom images live in IndexedDB, see image.ts).
 import { useCallback, useEffect, useState } from "react";
-import { Binder, CardSlot, Slot } from "./types";
+import { Binder, CardSlot, PageArt, Slot } from "./types";
 import { collectGarbage, newId } from "./image";
 
 const KEY = "dreambinder:v1";
@@ -51,7 +51,10 @@ export function useBinders() {
     const s = load();
     setState(s);
     const used = new Set<string>();
-    s.binders.forEach((b) => b.pages.flat().forEach((sl) => sl?.kind === "custom" && used.add(sl.imageId)));
+    s.binders.forEach((b) => {
+      b.pages.flat().forEach((sl) => sl?.kind === "custom" && used.add(sl.imageId));
+      b.art?.forEach((a) => a && used.add(a.imageId));
+    });
     collectGarbage(used).catch(() => {});
   }, []);
 
@@ -114,9 +117,37 @@ export function useBinders() {
       update((b) => ({ ...b, pages: [...b.pages, emptyPage(b.rows * b.cols), emptyPage(b.rows * b.cols)] })),
 
     removeSpread: (firstPage: number) =>
-      update((b) =>
-        b.pages.length <= 2 ? b : { ...b, pages: b.pages.filter((_, i) => i !== firstPage && i !== firstPage + 1) },
-      ),
+      update((b) => {
+        if (b.pages.length <= 2) return b;
+        const keep = (_: unknown, i: number) => i !== firstPage && i !== firstPage + 1;
+        return { ...b, pages: b.pages.filter(keep), art: b.art?.filter(keep) };
+      }),
+
+    /** Set, change or remove (null) a page's background art. */
+    setArt: (page: number, art: PageArt | null) =>
+      update((b) => {
+        const list = [...(b.art ?? [])];
+        while (list.length <= page) list.push(null);
+        list[page] = art;
+        return { ...b, art: list };
+      }),
+
+    adjustArt: (page: number, change: Partial<Pick<PageArt, "zoom" | "x" | "y">>) =>
+      update((b) => {
+        const cur = b.art?.[page];
+        if (!cur) return b;
+        const list = [...b.art!];
+        list[page] = { ...cur, ...change };
+        return { ...b, art: list };
+      }),
+
+    toggleFlip: (page: number, index: number) =>
+      update((b) => {
+        const pages = withPages(b, page);
+        const s = pages[page][index];
+        if (s) pages[page][index] = { ...s, flipped: !s.flipped };
+        return { ...b, pages };
+      }),
 
     /** Flip a card between owned and missing. */
     toggleMissing: (page: number, index: number) =>

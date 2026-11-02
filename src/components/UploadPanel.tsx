@@ -1,17 +1,18 @@
 "use client";
 import { useRef, useState } from "react";
-import { imageToCard, saveImage, splitAcrossPage } from "@/lib/image";
+import { imageToCard, prepareArt, saveImage } from "@/lib/image";
+import type { PageArt } from "@/lib/types";
 
 export type UploadHandlers = {
   rows: number;
   cols: number;
   /** Place one card-sized custom image (selected pocket, or first free one). */
   onPlaceImage: (imageId: string) => void;
-  /** Fill a page of the current spread (0 = left, 1 = right) with art pieces. */
-  onSplitImage: (side: 0 | 1, imageIds: string[]) => void;
+  /** Put background art behind a page of the current spread (0 = left, 1 = right). */
+  onSetArt: (side: 0 | 1, art: PageArt) => void;
 };
 
-export function UploadPanel({ rows, cols, onPlaceImage, onSplitImage }: UploadHandlers) {
+export function UploadPanel({ rows, cols, onPlaceImage, onSetArt }: UploadHandlers) {
   const single = useRef<HTMLInputElement>(null);
   const split = useRef<HTMLInputElement>(null);
   const [side, setSide] = useState<0 | 1>(0);
@@ -63,10 +64,11 @@ export function UploadPanel({ rows, cols, onPlaceImage, onSplitImage }: UploadHa
       </section>
 
       <section className="space-y-2 rounded-lg border border-white/10 bg-black/20 p-3">
-        <h3 className="font-semibold">Split art across a page</h3>
+        <h3 className="font-semibold">Background art for a page</h3>
         <p className="text-white/60">
-          One big image is sliced into {rows * cols} cards ({cols}×{rows}) so the whole page forms a single
-          picture. This replaces everything on that page.
+          One big image spread behind all {rows * cols} pockets ({cols}×{rows}). Your cards stay on top and the
+          empty pockets show the art, so you can build showcase layouts. Use &ldquo;Adjust art&rdquo; under the
+          page to zoom and line it up.
         </p>
         <div className="flex gap-2">
           {(["Left page", "Right page"] as const).map((label, i) => (
@@ -93,8 +95,8 @@ export function UploadPanel({ rows, cols, onPlaceImage, onSplitImage }: UploadHa
             e.target.value = "";
             if (f)
               run(async () => {
-                const pieces = await splitAcrossPage(f, rows, cols);
-                onSplitImage(side, await Promise.all(pieces.map(saveImage)));
+                const { dataUrl, w, h } = await prepareArt(f);
+                onSetArt(side, { imageId: await saveImage(dataUrl), w, h, zoom: 1, x: 0, y: 0 });
               });
           }}
         />

@@ -2,8 +2,18 @@
 import type { Binder, Slot } from "./types";
 import { CARD_H, CARD_W, POCKET_GAP, loadImage } from "./image";
 import { cardImage } from "./tcgdex";
+import { artSourceRect } from "./art";
 
 const PX = 4; // pixels per mm
+
+async function urlImage(url: string | undefined) {
+  if (!url) return null;
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.src = url;
+  await img.decode();
+  return img;
+}
 
 async function slotImage(slot: Slot): Promise<HTMLImageElement | null> {
   if (!slot) return null;
@@ -51,6 +61,8 @@ export async function exportSpread(binder: Binder, firstPage: number) {
     const page = pages[p] ?? [];
     // Load everything first, then draw in order (drawing while awaiting would mix up clip regions).
     const images = await Promise.all(page.map(slotImage));
+    const art = binder.art?.[firstPage + p] ?? null;
+    const artImg = art ? await loadImage(art.imageId).then(urlImage).catch(() => null) : null;
     page.forEach((slot, i) => {
       const x = ox + pad + (i % cols) * (CARD_W + POCKET_GAP) * PX;
       const y = oy + pad + Math.floor(i / cols) * (CARD_H + POCKET_GAP) * PX;
@@ -60,8 +72,18 @@ export async function exportSpread(binder: Binder, firstPage: number) {
       roundRect(ctx, x, y, w, h, 3 * PX);
       ctx.clip();
       const img = images[i];
-      if (img) ctx.drawImage(img, x, y, w, h);
-      else {
+      if (art && artImg) {
+        const r = artSourceRect(art, rows, cols, i);
+        ctx.drawImage(artImg, r.sx, r.sy, r.sw, r.sh, x, y, w, h);
+      }
+      if (img) {
+        if (slot?.kind === "card" && slot.missing) ctx.globalAlpha = 0.55;
+        if (slot?.flipped) {
+          ctx.translate(x + w / 2, y + h / 2);
+          ctx.rotate(Math.PI);
+          ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        } else ctx.drawImage(img, x, y, w, h);
+      } else if (!artImg || slot) {
         ctx.fillStyle = slot ? "#3f3f46" : "#232329";
         ctx.fillRect(x, y, w, h);
         if (slot?.kind === "card") {

@@ -81,3 +81,16 @@ export async function splitAcrossPage(file: Blob, rows: number, cols: number) {
   }
   return pieces;
 }
+
+/** Downscale a big artwork for use as page background art. */
+export async function prepareArt(file: Blob, maxSide = 2400) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * k);
+  canvas.height = Math.round(bmp.height * k);
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  return { dataUrl: canvas.toDataURL("image/jpeg", 0.9), w: canvas.width, h: canvas.height };
+}

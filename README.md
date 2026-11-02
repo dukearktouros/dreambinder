@@ -22,7 +22,8 @@ For developers: `npm install`, then `npm run dev`.
 - Drag and drop into pockets, swap pockets, drag to the bin to remove
 - Click a pocket, then click cards to fill pockets in order (works well on phones)
 - 4, 9, 12 and 16-pocket layouts, add or remove pages, binder cover colours
-- **Free custom uploads:** a single card-sized image, or one artwork sliced across a whole page
+- **Free custom uploads:** a single card-sized image, or **background art** behind a whole page: cards sit on top and empty pockets show the art (zoom and move it with "Adjust art")
+- Flip any card upside down (click it, then **Flip upside down**)
 - "Make binder from set" creates a complete set binder in one click
 - Several binders, autosaved in the browser (localStorage, with images in IndexedDB)
 - Export a two-page spread as a PNG to share on Discord or social media

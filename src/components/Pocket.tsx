@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type MouseEvent, type PointerEvent } from "react";
+import { useEffect, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { cardImage } from "@/lib/tcgdex";
 import { loadImage } from "@/lib/image";
@@ -19,6 +19,7 @@ export function useCustomImage(id: string | undefined) {
 
 export function SlotImage({ slot, quality = "low" }: { slot: Exclude<Slot, null>; quality?: "low" | "high" }) {
   const missing = slot.kind === "card" && slot.missing;
+  const flip = slot.flipped ? "rotate-180" : "";
   const custom = useCustomImage(slot.kind === "custom" ? slot.imageId : undefined);
   const src = slot.kind === "card" ? cardImage(slot.image, quality) : custom;
   if (!src) return <div className="h-full w-full animate-pulse rounded-[5%] bg-white/10" />;
@@ -28,7 +29,7 @@ export function SlotImage({ slot, quality = "low" }: { slot: Exclude<Slot, null>
       alt={slot.kind === "card" ? slot.name : "Custom art"}
       draggable={false}
       loading="lazy"
-      className={`h-full w-full rounded-[4.5%] object-cover shadow-md ${missing ? "opacity-55 grayscale" : ""}`}
+      className={`h-full w-full rounded-[4.5%] object-cover shadow-md ${missing ? "opacity-55 grayscale" : ""} ${flip}`}
     />
   );
 }
@@ -40,6 +41,10 @@ type Props = {
   selected: boolean;
   /** Formatted market price to show on the card, if any */
   price?: string;
+  /** Position on the page */
+  style?: CSSProperties;
+  /** This pocket's piece of the page background art */
+  art?: { url: string; style: CSSProperties };
   onSelect: () => void;
   onClear: () => void;
   onToggleMissing: () => void;
@@ -53,7 +58,7 @@ const stop = (fn: () => void) => ({
   },
 });
 
-export function Pocket({ page, index, slot, selected, price, onSelect, onClear, onToggleMissing }: Props) {
+export function Pocket({ page, index, slot, selected, price, style, art, onSelect, onClear, onToggleMissing }: Props) {
   const drop = useDroppable({ id: `drop:${page}:${index}`, data: { type: "slot", page, index } });
   const drag = useDraggable({
     id: `drag:${page}:${index}`,
@@ -66,16 +71,23 @@ export function Pocket({ page, index, slot, selected, price, onSelect, onClear, 
       ref={drop.setNodeRef}
       onClick={onSelect}
       data-testid={`pocket-${page}-${index}`}
-      className={`group relative aspect-[63/88] cursor-pointer rounded-md border transition
-        ${drop.isOver ? "border-amber-300 bg-amber-300/20" : "border-white/10 bg-black/25"}
-        ${selected ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-transparent" : ""}`}
+      style={style}
+      className={`group absolute cursor-pointer rounded-md transition
+        ${art ? "" : "border"} ${drop.isOver ? "border-amber-300 bg-amber-300/20" : "border-white/10 bg-black/25"}
+        ${selected ? "z-10 ring-2 ring-amber-400 ring-offset-2 ring-offset-transparent" : ""}`}
     >
+      {art && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[4.5%]">
+          <img src={art.url} alt="" draggable={false} className="absolute max-w-none" style={art.style} />
+        </div>
+      )}
+      {drop.isOver && art && <div className="pointer-events-none absolute inset-0 z-10 rounded-[4.5%] bg-amber-300/30" />}
       {slot ? (
         <div
           ref={drag.setNodeRef}
           {...drag.listeners}
           {...drag.attributes}
-          className={`h-full w-full touch-none ${drag.isDragging ? "opacity-30" : ""}`}
+          className={`relative h-full w-full touch-none ${drag.isDragging ? "opacity-30" : ""}`}
         >
           <SlotImage slot={slot} />
           {slot.kind === "card" && slot.missing && (
@@ -110,7 +122,7 @@ export function Pocket({ page, index, slot, selected, price, onSelect, onClear, 
           </button>
         </div>
       ) : (
-        <div className="flex h-full items-center justify-center text-xl text-white/15">+</div>
+        !art && <div className="flex h-full items-center justify-center text-xl text-white/15">+</div>
       )}
     </div>
   );
