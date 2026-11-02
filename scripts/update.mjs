@@ -12,7 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 /** Folders fully managed by the updater: local files that no longer exist on GitHub get deleted. */
 const MANAGED_DIRS = ["src", "scripts", "public"];
 /** Marker telling launch.mjs to reinstall and rebuild. */
-export const MARKER = join(ROOT, ".needs-rebuild");
+const MARKER = join(ROOT, ".needs-rebuild");
 
 const isWindowsText = (path) => path.endsWith(".bat");
 const toLF = (buf) => Buffer.from(buf.toString("utf8").replace(/\r\n/g, "\n"));
@@ -55,8 +55,8 @@ async function main() {
     return;
   }
   console.log("Checking for updates...");
-  const commit = await (await get(`https://api.github.com/repos/${REPO}/commits/${BRANCH}`)).json();
-  const tree = await (await get(`https://api.github.com/repos/${REPO}/git/trees/${commit.sha}?recursive=1`)).json();
+  // One API call per launch (GitHub allows 60 an hour without logging in).
+  const tree = await (await get(`https://api.github.com/repos/${REPO}/git/trees/${BRANCH}?recursive=1`)).json();
   const files = tree.tree.filter((f) => f.type === "blob");
 
   const changed = files.filter((f) => localHash(f.path) !== f.sha);
@@ -71,7 +71,7 @@ async function main() {
   // Download everything first, so a failed download never leaves a half-updated copy.
   const downloads = await Promise.all(
     changed.map(async (f) => {
-      const url = `https://raw.githubusercontent.com/${REPO}/${commit.sha}/${f.path.split("/").map(encodeURIComponent).join("/")}`;
+      const url = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/${f.path.split("/").map(encodeURIComponent).join("/")}`;
       const buf = Buffer.from(await (await get(url)).arrayBuffer());
       return { path: f.path, buf: isWindowsText(f.path) ? toCRLF(buf) : buf };
     }),
@@ -88,7 +88,7 @@ async function main() {
   }
   for (const path of removed) rmSync(join(ROOT, path), { force: true });
 
-  writeFileSync(MARKER, commit.sha);
+  writeFileSync(MARKER, tree.sha);
   console.log(`Updated ${changed.length + removed.length} file(s) to the latest version.`);
 }
 
