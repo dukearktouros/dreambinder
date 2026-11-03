@@ -34,6 +34,10 @@ For developers: `npm install`, then `npm run dev`.
 - **Market prices** on every card (TCGplayer market price in USD, Cardmarket in EUR when TCGplayer has none), plus binder value and "cost to complete"
 - **Missing cards:** mark cards you still need (hover a card and click **?**, or click it and use the buttons above the binder)
 - **Export PDF:** a printable want list (missing cards only) or full checklist with tick boxes, set, number and price, for card shows
+- **Japanese and Chinese cards:** pick the card language above the search. Type English names ("Pikachu") and DreamBinder finds that Pokémon's cards in the other language by Pokédex number, or type the name in Japanese/Chinese
+- Cards the main database has no picture for (e.g. some Brilliant Stars cards) use a backup picture from pokemontcg.io, or a name placeholder
+- **Expand art to page:** click a card → **✨ Expand art to page**, choose the part of the artwork (no name, text or border), and it fills the page behind the card, with the card in the middle pocket
+- **Free background library:** 14 original backgrounds (fire, water, psychic, nebula, holo…) anyone can use, in the Upload tab
 - Online-only sets (Pokémon TCG Pocket) are hidden, so only cards that exist as physical cards show up
 
 ## Code map

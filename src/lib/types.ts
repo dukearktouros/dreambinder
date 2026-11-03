@@ -1,5 +1,9 @@
+import type { Lang } from "./tcgdex";
+
 export type CardSlot = {
   kind: "card";
+  /** Card language (missing = English) */
+  lang?: Lang;
   cardId: string;
   name: string;
   /** TCGdex image base URL (append /low.webp or /high.webp) */
@@ -19,8 +23,15 @@ export type CustomSlot = {
 
 /** Background artwork behind a whole page. Cards sit on top; empty pockets show the art. */
 export type PageArt = {
-  imageId: string;
-  /** Natural image size in px */
+  /** Uploaded image (IndexedDB key)… */
+  imageId?: string;
+  /** …or an image URL (card picture, built-in background) */
+  src?: string;
+  /** Part of the image to use, as fractions of the full image (default: all of it) */
+  crop?: { x: number; y: number; w: number; h: number };
+  /** Softening, in mm (0 = sharp) */
+  blur?: number;
+  /** Size in px of the part used (the crop) */
   w: number;
   h: number;
   /** 1 = just covers the page */

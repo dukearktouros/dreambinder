@@ -25,24 +25,46 @@ export function artPlacement(art: PageArt, W: number, H: number) {
   return { left: (W - IW) * (0.5 + art.x), top: (H - IH) * (0.5 + art.y), IW, IH };
 }
 
+const FULL = { x: 0, y: 0, w: 1, h: 1 };
+
+/** Where the whole image (not just the crop) sits on the page, in mm. */
+function fullImagePlacement(art: PageArt, W: number, H: number) {
+  const p = artPlacement(art, W, H);
+  const c = art.crop ?? FULL;
+  const fullW = p.IW / c.w;
+  const fullH = p.IH / c.h;
+  return { left: p.left - c.x * fullW, top: p.top - c.y * fullH, fullW, fullH };
+}
+
 /** CSS (percentages of the pocket) to show the right part of the art inside one pocket. */
 export function artStyleForPocket(art: PageArt, rows: number, cols: number, index: number) {
   const { W, H } = pageSize(rows, cols);
-  const p = artPlacement(art, W, H);
+  const f = fullImagePlacement(art, W, H);
   const r = pocketRect(index, cols);
   return {
-    width: `${(p.IW / r.w) * 100}%`,
-    height: `${(p.IH / r.h) * 100}%`,
-    left: `${((p.left - r.x) / r.w) * 100}%`,
-    top: `${((p.top - r.y) / r.h) * 100}%`,
+    width: `${(f.fullW / r.w) * 100}%`,
+    height: `${(f.fullH / r.h) * 100}%`,
+    left: `${((f.left - r.x) / r.w) * 100}%`,
+    top: `${((f.top - r.y) / r.h) * 100}%`,
+    // blur is in mm; 1cqw = 1% of the page width (the page is a size container)
+    ...(art.blur ? { filter: `blur(${(art.blur / W) * 100}cqw)` } : {}),
   };
 }
 
-/** Source rectangle in image pixels for one pocket (used by the PNG export). */
-export function artSourceRect(art: PageArt, rows: number, cols: number, index: number) {
+/**
+ * Source rectangle (image px) and destination offset for one pocket, used by the PNG export.
+ * `margin` (mm) draws a little extra around the pocket so blurred edges stay filled.
+ */
+export function artSourceRect(art: PageArt, rows: number, cols: number, index: number, natural: { w: number; h: number }, margin = 0) {
   const { W, H } = pageSize(rows, cols);
-  const p = artPlacement(art, W, H);
+  const f = fullImagePlacement(art, W, H);
   const r = pocketRect(index, cols);
-  const k = art.w / p.IW; // image px per mm
-  return { sx: (r.x - p.left) * k, sy: (r.y - p.top) * k, sw: r.w * k, sh: r.h * k };
+  const kx = natural.w / f.fullW; // image px per mm
+  const ky = natural.h / f.fullH;
+  return {
+    sx: (r.x - margin - f.left) * kx,
+    sy: (r.y - margin - f.top) * ky,
+    sw: (r.w + 2 * margin) * kx,
+    sh: (r.h + 2 * margin) * ky,
+  };
 }

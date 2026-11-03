@@ -53,7 +53,7 @@ export function useBinders() {
     const used = new Set<string>();
     s.binders.forEach((b) => {
       b.pages.flat().forEach((sl) => sl?.kind === "custom" && used.add(sl.imageId));
-      b.art?.forEach((a) => a && used.add(a.imageId));
+      b.art?.forEach((a) => a?.imageId && used.add(a.imageId));
     });
     collectGarbage(used).catch(() => {});
   }, []);
@@ -146,7 +146,7 @@ export function useBinders() {
         return { ...b, art: list };
       }),
 
-    adjustArt: (page: number, change: Partial<Pick<PageArt, "zoom" | "x" | "y">>) =>
+    adjustArt: (page: number, change: Partial<Pick<PageArt, "zoom" | "x" | "y" | "blur">>) =>
       update((b) => {
         const cur = b.art?.[page];
         if (!cur) return b;

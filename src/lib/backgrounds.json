@@ -1,0 +1,129 @@
+[
+  {
+    "id": "nebula",
+    "name": "Nebula",
+    "tags": [
+      "psychic",
+      "space"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "inferno",
+    "name": "Inferno",
+    "tags": [
+      "fire"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "ocean",
+    "name": "Ocean Depths",
+    "tags": [
+      "water"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "forest",
+    "name": "Forest Glow",
+    "tags": [
+      "grass"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "thunder",
+    "name": "Thunderstorm",
+    "tags": [
+      "lightning"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "psychic",
+    "name": "Dreamscape",
+    "tags": [
+      "psychic"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "darkness",
+    "name": "Shadow Realm",
+    "tags": [
+      "darkness"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "metal",
+    "name": "Chrome",
+    "tags": [
+      "metal"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "dragon",
+    "name": "Dragon Gold",
+    "tags": [
+      "dragon"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "holo",
+    "name": "Holo Rainbow",
+    "tags": [
+      "any"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "starfield",
+    "name": "Starfield",
+    "tags": [
+      "space"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "sunset",
+    "name": "Sunset Sky",
+    "tags": [
+      "any"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "ice",
+    "name": "Frozen",
+    "tags": [
+      "water"
+    ],
+    "w": 1200,
+    "h": 1600
+  },
+  {
+    "id": "fairy",
+    "name": "Fairy Dust",
+    "tags": [
+      "fairy"
+    ],
+    "w": 1200,
+    "h": 1600
+  }
+]

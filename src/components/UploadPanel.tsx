@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { imageToCard, prepareArt, saveImage, splitAcrossPage } from "@/lib/image";
 import type { PageArt } from "@/lib/types";
+import BACKGROUNDS from "@/lib/backgrounds.json";
 
 export type UploadHandlers = {
   rows: number;
@@ -188,6 +189,25 @@ export function UploadPanel({ rows, cols, onPlaceImage, onSetArt, blockStart, on
         >
           {busy ? "Processing…" : "Upload artwork"}
         </button>
+        <h4 className="pt-2 text-xs font-semibold uppercase tracking-wide text-white/50">Or pick a free background</h4>
+        <div className="grid grid-cols-4 gap-1.5" data-testid="bg-library">
+          {BACKGROUNDS.map((bg) => (
+            <button
+              key={bg.id}
+              type="button"
+              title={bg.name}
+              aria-label={`Use ${bg.name} background`}
+              onClick={() =>
+                onSetArt(side, { src: `/backgrounds/${bg.id}.jpg`, w: bg.w, h: bg.h, zoom: 1, x: 0, y: 0 })
+              }
+              className="group relative overflow-hidden rounded-md ring-amber-400 hover:ring-2"
+            >
+              <img src={`/backgrounds/${bg.id}-thumb.jpg`} alt="" loading="lazy" className="aspect-[3/4] w-full object-cover" />
+              <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 text-[9px] text-white">{bg.name}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-white/40">Original backgrounds made for DreamBinder, free for everyone to use.</p>
       </section>
 
       {error && <p className="text-red-400">{error}</p>}

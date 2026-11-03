@@ -1,7 +1,7 @@
 "use client";
 // Set name, number and market price for each card, fetched on demand and cached for a day.
 import { useEffect, useState } from "react";
-import { getCard, type CardDetail } from "./tcgdex";
+import { getCard, type CardDetail, type Lang } from "./tcgdex";
 
 export type Currency = "USD" | "EUR";
 export type CardInfo = {
@@ -14,6 +14,10 @@ export type CardInfo = {
 };
 
 const KEY = "dreambinder:cardinfo:v1";
+
+/** Cache key for a card: its ID, prefixed with the language for non-English cards. */
+export const infoKey = (card: { cardId: string; lang?: Lang }) =>
+  card.lang && card.lang !== "en" ? `${card.lang}/${card.cardId}` : card.cardId;
 const TTL = 24 * 60 * 60 * 1000;
 const CONCURRENCY = 6;
 
@@ -66,7 +70,8 @@ function fetchInfo(id: string): Promise<void> {
   const p = new Promise<void>((resolve) => {
     queue.push(async () => {
       try {
-        const card = await getCard(id);
+        const slash = id.indexOf("/");
+        const card = slash > 0 ? await getCard(id.slice(slash + 1), undefined, id.slice(0, slash) as Lang) : await getCard(id);
         const price = bestPrice(card.pricing);
         infos = {
           ...infos,

@@ -15,9 +15,11 @@ import { COVER_COLORS, GRID_PRESETS, type Binder, type DragData, type DropData, 
 import { artStyleForPocket, pageSize, pocketRect } from "@/lib/art";
 import { exportSpread } from "@/lib/export";
 import { exportPdf } from "@/lib/pdf";
-import { formatPrice, formatTotal, useCardInfo, type CardInfo } from "@/lib/prices";
+import { formatPrice, formatTotal, infoKey, useCardInfo, type CardInfo } from "@/lib/prices";
 import { Pocket, SlotImage, useCustomImage } from "./Pocket";
 import { Library } from "./Library";
+import { ExpandArtDialog } from "./ExpandArtDialog";
+import { cardImage } from "@/lib/tcgdex";
 import pkg from "../../package.json";
 
 type Sel = { page: number; index: number } | null;
@@ -38,7 +40,7 @@ function Trash() {
 
 function ArtControls({ page, art, actions }: { page: number; art: PageArt; actions: BinderActions }) {
   const [open, setOpen] = useState(false);
-  const slider = (label: string, key: "zoom" | "x" | "y", min: number, max: number) => (
+  const slider = (label: string, key: "zoom" | "x" | "y" | "blur", min: number, max: number) => (
     <label className="flex items-center gap-2">
       <span className="w-14 text-white/50">{label}</span>
       <input
@@ -46,7 +48,7 @@ function ArtControls({ page, art, actions }: { page: number; art: PageArt; actio
         min={min}
         max={max}
         step={0.01}
-        value={art[key]}
+        value={art[key] ?? 0}
         aria-label={`Art ${label}`}
         onChange={(e) => actions.adjustArt(page, { [key]: Number(e.target.value) })}
         className="flex-1 accent-amber-400"
@@ -72,6 +74,7 @@ function ArtControls({ page, art, actions }: { page: number; art: PageArt; actio
           {slider("Zoom", "zoom", 1, 3)}
           {slider("Left/right", "x", -0.5, 0.5)}
           {slider("Up/down", "y", -0.5, 0.5)}
+          {slider("Soften", "blur", 0, 4)}
         </div>
       )}
     </div>
@@ -94,7 +97,8 @@ function Page({
   priceOf: (slot: Slot) => string | undefined;
 }) {
   const art = binder.art?.[page] ?? null;
-  const artUrl = useCustomImage(art?.imageId);
+  const uploadedUrl = useCustomImage(art?.imageId);
+  const artUrl = art?.src ?? uploadedUrl;
   const slots = binder.pages[page];
   if (!slots) return null;
   const { W, H } = pageSize(binder.rows, binder.cols);
@@ -103,7 +107,7 @@ function Page({
       {/* Pockets sit at their real positions (mm), so background art lines up across the gaps */}
       <div
         className="relative mx-auto"
-        style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(72vh * ${W / H}))` }}
+        style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(72vh * ${W / H}))`, containerType: "inline-size" }}
       >
         {slots.map((slot, i) => {
           const r = pocketRect(i, binder.cols);
@@ -198,7 +202,7 @@ function PdfDialog({ binder, onClose }: { binder: Binder; onClose: () => void })
 function Stats({ binder, infos }: { binder: Binder; infos: Record<string, CardInfo> }) {
   const cards = binder.pages.flat().filter((s) => s?.kind === "card");
   const missing = cards.filter((s) => s.missing);
-  const loading = cards.some((s) => !infos[s.cardId]);
+  const loading = cards.some((s) => !infos[infoKey(s)]);
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm" data-testid="stats">
       <span>
@@ -209,11 +213,11 @@ function Stats({ binder, infos }: { binder: Binder; infos: Record<string, CardIn
       </span>
       <span>
         <span className="text-white/50">Value </span>
-        <b className="text-emerald-300">{formatTotal(cards.map((s) => infos[s.cardId]))}</b>
+        <b className="text-emerald-300">{formatTotal(cards.map((s) => infos[infoKey(s)]))}</b>
       </span>
       <span>
         <span className="text-white/50">To complete </span>
-        <b className="text-amber-300">{formatTotal(missing.map((s) => infos[s.cardId]))}</b>
+        <b className="text-amber-300">{formatTotal(missing.map((s) => infos[infoKey(s)]))}</b>
       </span>
       {loading && <span className="text-xs text-white/40">loading prices…</span>}
     </div>
@@ -228,7 +232,11 @@ export function Editor() {
   const [exporting, setExporting] = useState(false);
   const [showPrices, setShowPrices] = useState(true);
   const [pdfOpen, setPdfOpen] = useState(false);
-  const infos = useCardInfo(binder?.pages.flat().flatMap((s) => (s?.kind === "card" ? [s.cardId] : [])) ?? []);
+  const [expandFor, setExpandFor] = useState<{ page: number; index: number } | null>(null);
+  const expandSlot = expandFor && binder ? binder.pages[expandFor.page]?.[expandFor.index] : null;
+  const expandCustomUrl = useCustomImage(expandSlot?.kind === "custom" ? expandSlot.imageId : undefined);
+  const expandSrc = expandSlot?.kind === "card" ? cardImage(expandSlot.image, "high") : expandCustomUrl;
+  const infos = useCardInfo(binder?.pages.flat().flatMap((s) => (s?.kind === "card" ? [infoKey(s)] : [])) ?? []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSel(null);
@@ -288,7 +296,7 @@ export function Editor() {
 
   const gridValue = `${binder.rows}x${binder.cols}`;
   const priceOf = (slot: Slot) => {
-    const info = slot?.kind === "card" && showPrices ? infos[slot.cardId] : undefined;
+    const info = slot?.kind === "card" && showPrices ? infos[infoKey(slot)] : undefined;
     return info?.price ? formatPrice(info.price, info.currency) : undefined;
   };
   const selSlot = sel ? binder.pages[sel.page]?.[sel.index] : null;
@@ -454,6 +462,13 @@ export function Editor() {
                   <>
                     <button
                       type="button"
+                      onClick={() => setExpandFor(sel)}
+                      className="rounded-md border border-amber-400/60 px-2 py-1 text-amber-300 hover:bg-amber-400/10"
+                    >
+                      ✨ Expand art to page
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => actions.toggleFlip(sel.page, sel.index)}
                       className="rounded-md border border-white/15 px-2 py-1 hover:bg-white/10"
                     >
@@ -554,6 +569,21 @@ export function Editor() {
       </div>
 
       {pdfOpen && <PdfDialog binder={binder} onClose={() => setPdfOpen(false)} />}
+      {expandFor && expandSrc && (
+        <ExpandArtDialog
+          src={expandSrc}
+          name={expandSlot?.kind === "card" ? expandSlot.name : "Custom art"}
+          onClose={() => setExpandFor(null)}
+          onApply={(art, centerCard) => {
+            const { page, index } = expandFor;
+            actions.setArt(page, art);
+            const middle = Math.floor(binder.rows / 2) * binder.cols + Math.floor(binder.cols / 2);
+            if (centerCard && index !== middle) actions.moveSlot(page, index, page, middle);
+            setExpandFor(null);
+            setSel(null);
+          }}
+        />
+      )}
       <DragOverlay dropAnimation={null}>
         {dragging && (
           <div className="w-24 rotate-3 drop-shadow-2xl">

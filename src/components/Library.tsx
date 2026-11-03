@@ -1,13 +1,19 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { CardBrief, SetBrief, SetDetail, cardImage, getSet, listSets, searchCards } from "@/lib/tcgdex";
+import { CardBrief, LANGS, SetBrief, SetDetail, cardImage, getSet, listSets, searchCards, type Lang } from "@/lib/tcgdex";
 import { chaseRanks, sortByChase, type Chase } from "@/lib/rarity";
 import { loadNames, suggest } from "@/lib/names";
 import type { CardSlot, DragData } from "@/lib/types";
 import { UploadPanel, type UploadHandlers } from "./UploadPanel";
 
-const toSlot = (c: CardBrief): CardSlot => ({ kind: "card", cardId: c.id, name: c.name, image: c.image! });
+const toSlot = (c: CardBrief): CardSlot => ({
+  kind: "card",
+  cardId: c.id,
+  name: c.name,
+  image: c.image!,
+  ...(c.lang && c.lang !== "en" ? { lang: c.lang } : {}),
+});
 
 const BADGE: Record<number, string> = {
   6: "bg-fuchsia-500 text-white",
@@ -18,6 +24,7 @@ const BADGE: Record<number, string> = {
 
 function LibraryCard({ card, chase, onPick }: { card: CardBrief; chase?: Chase; onPick: (c: CardSlot) => void }) {
   const slot = toSlot(card);
+  const [broken, setBroken] = useState(false);
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `lib:${card.id}`,
     data: { type: "card", slot } satisfies DragData,
@@ -32,13 +39,21 @@ function LibraryCard({ card, chase, onPick }: { card: CardBrief; chase?: Chase; 
       onClick={() => onPick(slot)}
       className={`relative touch-none rounded-md text-left transition hover:scale-105 ${isDragging ? "opacity-30" : ""}`}
     >
-      <img
-        src={cardImage(card.image!)}
-        alt={card.name}
-        loading="lazy"
-        draggable={false}
-        className="aspect-[63/88] w-full rounded-[4.5%] bg-white/5 object-cover"
-      />
+      {broken ? (
+        <span className="flex aspect-[63/88] w-full items-center justify-center rounded-[4.5%] bg-white/5 p-1 text-center text-[10px] text-white/50">
+          {card.name}
+          <br />#{card.localId}
+        </span>
+      ) : (
+        <img
+          src={cardImage(card.image!)}
+          alt={card.name}
+          loading="lazy"
+          draggable={false}
+          onError={() => setBroken(true)}
+          className="aspect-[63/88] w-full rounded-[4.5%] bg-white/5 object-cover"
+        />
+      )}
       {chase && (
         <span
           className={`absolute left-1 top-1 rounded px-1 text-[9px] font-black uppercase shadow ${BADGE[chase.tier] ?? BADGE[3]}`}
@@ -54,7 +69,17 @@ function LibraryCard({ card, chase, onPick }: { card: CardBrief; chase?: Chase; 
 const PREF = "dreambinder:chaseFirst";
 
 /** Ranks cards by rarity and (optionally) puts the chase cards first. */
-function ChaseGrid({ cards, filter, onPick }: { cards: CardBrief[]; filter: string; onPick: (c: CardSlot) => void }) {
+function ChaseGrid({
+  cards,
+  filter,
+  lang,
+  onPick,
+}: {
+  cards: CardBrief[];
+  filter: string;
+  lang: Lang;
+  onPick: (c: CardSlot) => void;
+}) {
   const [chaseFirst, setChaseFirst] = useState(true);
   const [ranks, setRanks] = useState<Map<string, Chase>>(new Map());
   useEffect(() => {
@@ -65,9 +90,9 @@ function ChaseGrid({ cards, filter, onPick }: { cards: CardBrief[]; filter: stri
   useEffect(() => {
     const ctrl = new AbortController();
     setRanks(new Map());
-    chaseRanks(cards, filter, ctrl.signal).then((r) => !ctrl.signal.aborted && setRanks(r)).catch(() => {});
+    chaseRanks(cards, filter, lang, ctrl.signal).then((r) => !ctrl.signal.aborted && setRanks(r)).catch(() => {});
     return () => ctrl.abort();
-  }, [cards, filter]);
+  }, [cards, filter, lang]);
   const shown = useMemo(() => (chaseFirst ? sortByChase(cards, ranks) : cards), [cards, ranks, chaseFirst]);
   return (
     <div className="space-y-2">
@@ -190,11 +215,11 @@ function NameInput({ onSearch }: { onSearch: (q: string) => void }) {
   );
 }
 
-function SearchTab({ onPick }: { onPick: (c: CardSlot) => void }) {
+function SearchTab({ lang, onPick }: { lang: Lang; onPick: (c: CardSlot) => void }) {
   const [query, setQuery] = useState("");
   const res = useAsync(
-    (signal) => (query.length >= 2 ? searchCards(query, signal) : Promise.resolve([])),
-    [query],
+    (signal) => (query.length >= 2 ? searchCards(query, lang, signal) : Promise.resolve([])),
+    [query, lang],
   );
   return (
     <div className="space-y-3">
@@ -205,7 +230,7 @@ function SearchTab({ onPick }: { onPick: (c: CardSlot) => void }) {
         <>
           <Status loading={res.loading} error={res.error} empty={res.data?.length === 0} />
           {res.data && res.data.length > 0 && (
-            <ChaseGrid cards={res.data} filter={`name=${encodeURIComponent(query)}`} onPick={onPick} />
+            <ChaseGrid cards={res.data} filter={`name=${encodeURIComponent(query)}`} lang={lang} onPick={onPick} />
           )}
         </>
       )}
@@ -214,16 +239,18 @@ function SearchTab({ onPick }: { onPick: (c: CardSlot) => void }) {
 }
 
 function SetsTab({
+  lang,
   onPick,
   onMakeBinder,
 }: {
+  lang: Lang;
   onPick: (c: CardSlot) => void;
   onMakeBinder: (name: string, cards: CardSlot[]) => void;
 }) {
   const [filter, setFilter] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
-  const sets = useAsync(() => listSets(), []);
-  const detail = useAsync<SetDetail | null>((s) => (openId ? getSet(openId, s) : Promise.resolve(null)), [openId]);
+  const sets = useAsync(() => listSets(lang), [lang]);
+  const detail = useAsync<SetDetail | null>((s) => (openId ? getSet(openId, lang, s) : Promise.resolve(null)), [openId, lang]);
   const shown = useMemo(
     () => (sets.data ?? []).filter((s: SetBrief) => s.name.toLowerCase().includes(filter.toLowerCase())),
     [sets.data, filter],
@@ -249,7 +276,7 @@ function SetsTab({
                 Make binder from set
               </button>
             </div>
-            <ChaseGrid cards={set.cards} filter={`set.id=${encodeURIComponent("eq:" + set.id)}`} onPick={onPick} />
+            <ChaseGrid cards={set.cards} filter={`set.id=${encodeURIComponent("eq:" + set.id)}`} lang={lang} onPick={onPick} />
           </>
         )}
       </div>
@@ -298,11 +325,38 @@ export function Library(
 ) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Search");
   const [setsOpened, setSetsOpened] = useState(false);
+  const [lang, setLang] = useState<Lang>("en");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("dreambinder:lang") as Lang | null;
+      if (saved && LANGS.some((l) => l.id === saved)) setLang(saved);
+    } catch {}
+  }, []);
   useEffect(() => {
     if (tab === "Sets") setSetsOpened(true);
   }, [tab]);
   return (
     <div className="flex h-full flex-col">
+      <label className="mb-2 flex items-center gap-2 text-xs text-white/60">
+        Card language
+        <select
+          value={lang}
+          onChange={(e) => {
+            const l = e.target.value as Lang;
+            setLang(l);
+            try {
+              localStorage.setItem("dreambinder:lang", l);
+            } catch {}
+          }}
+          className="flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-sm text-white"
+        >
+          {LANGS.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="flex gap-1 rounded-lg bg-black/30 p-1">
         {TABS.map((t) => (
           <button
@@ -320,9 +374,9 @@ export function Library(
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
         {/* Tabs stay mounted so your search and open set are kept when switching */}
         <div hidden={tab !== "Search"}>
-          <SearchTab onPick={props.onPick} />
+          <SearchTab lang={lang} onPick={props.onPick} />
         </div>
-        <div hidden={tab !== "Sets"}>{tab === "Sets" || setsOpened ? <SetsTab onPick={props.onPick} onMakeBinder={props.onMakeBinder} /> : null}</div>
+        <div hidden={tab !== "Sets"}>{tab === "Sets" || setsOpened ? <SetsTab key={lang} lang={lang} onPick={props.onPick} onMakeBinder={props.onMakeBinder} /> : null}</div>
         <div hidden={tab !== "Upload"}>
           <UploadPanel {...props} />
         </div>

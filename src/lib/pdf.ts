@@ -1,7 +1,7 @@
 // Printable checklist / want list as a PDF, for taking to card shows.
 import { jsPDF } from "jspdf";
 import type { Binder, CardSlot } from "./types";
-import { loadInfos, formatPrice, formatTotal, type CardInfo } from "./prices";
+import { infoKey, loadInfos, formatPrice, formatTotal, type CardInfo } from "./prices";
 import { cardImage } from "./tcgdex";
 
 export type PdfOptions = { onlyMissing: boolean; pictures: boolean };
@@ -37,8 +37,8 @@ export async function exportPdf(binder: Binder, opts: PdfOptions) {
   );
   if (!rows.length) throw new Error(opts.onlyMissing ? "No cards are marked as missing yet." : "This binder has no cards yet.");
 
-  const infos = await loadInfos(rows.map((r) => r.slot.cardId));
-  rows.forEach((r) => (r.info = infos[r.slot.cardId]));
+  const infos = await loadInfos(rows.map((r) => infoKey(r.slot)));
+  rows.forEach((r) => (r.info = infos[infoKey(r.slot)]));
   const thumbs = opts.pictures ? await Promise.all(rows.map((r) => thumbnail(r.slot))) : [];
 
   const doc = new jsPDF({ unit: "mm", format: "letter" });

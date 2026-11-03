@@ -62,7 +62,9 @@ export async function exportSpread(binder: Binder, firstPage: number) {
     // Load everything first, then draw in order (drawing while awaiting would mix up clip regions).
     const images = await Promise.all(page.map(slotImage));
     const art = binder.art?.[firstPage + p] ?? null;
-    const artImg = art ? await loadImage(art.imageId).then(urlImage).catch(() => null) : null;
+    const artImg = art
+      ? await (art.src ? Promise.resolve(art.src) : loadImage(art.imageId ?? "")).then(urlImage).catch(() => null)
+      : null;
     page.forEach((slot, i) => {
       const x = ox + pad + (i % cols) * (CARD_W + POCKET_GAP) * PX;
       const y = oy + pad + Math.floor(i / cols) * (CARD_H + POCKET_GAP) * PX;
@@ -74,8 +76,11 @@ export async function exportSpread(binder: Binder, firstPage: number) {
       const img = images[i];
       const artHere = !!(art && artImg && !art.hidden?.includes(i));
       if (art && artImg && artHere) {
-        const r = artSourceRect(art, rows, cols, i);
-        ctx.drawImage(artImg, r.sx, r.sy, r.sw, r.sh, x, y, w, h);
+        const m = art.blur ? art.blur * 3 : 0; // extra margin so blurred edges stay filled
+        const r = artSourceRect(art, rows, cols, i, { w: artImg.naturalWidth, h: artImg.naturalHeight }, m);
+        if (art.blur && "filter" in ctx) ctx.filter = `blur(${art.blur * PX}px)`;
+        ctx.drawImage(artImg, r.sx, r.sy, r.sw, r.sh, x - m * PX, y - m * PX, w + 2 * m * PX, h + 2 * m * PX);
+        ctx.filter = "none";
       }
       if (img) {
         if (slot?.kind === "card" && slot.missing) ctx.globalAlpha = 0.55;

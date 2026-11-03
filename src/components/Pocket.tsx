@@ -22,6 +22,13 @@ export function SlotImage({ slot, quality = "low" }: { slot: Exclude<Slot, null>
   const flip = slot.flipped ? "rotate-180" : "";
   const custom = useCustomImage(slot.kind === "custom" ? slot.imageId : undefined);
   const src = slot.kind === "card" ? cardImage(slot.image, quality) : custom;
+  const [broken, setBroken] = useState<string>();
+  if (slot.kind === "card" && broken === src)
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-[4.5%] bg-zinc-700 p-1 text-center text-[10px] text-white/70">
+        {slot.name}
+      </div>
+    );
   if (!src) return <div className="h-full w-full animate-pulse rounded-[5%] bg-white/10" />;
   return (
     <img
@@ -29,6 +36,7 @@ export function SlotImage({ slot, quality = "low" }: { slot: Exclude<Slot, null>
       alt={slot.kind === "card" ? slot.name : "Custom art"}
       draggable={false}
       loading="lazy"
+      onError={() => setBroken(src)}
       className={`h-full w-full rounded-[4.5%] object-cover shadow-md ${missing ? "opacity-55 grayscale" : ""} ${flip}`}
     />
   );
