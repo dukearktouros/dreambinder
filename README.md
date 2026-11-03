@@ -37,6 +37,9 @@ For developers: `npm install`, then `npm run dev`.
 - **Japanese and Chinese cards:** pick the card language above the search. Type English names ("Pikachu") and DreamBinder finds that Pokémon's cards in the other language by Pokédex number, or type the name in Japanese/Chinese
 - Cards the main database has no picture for (e.g. some Brilliant Stars cards) use a backup picture from pokemontcg.io, or a name placeholder
 - **Expand art to page:** click a card → **✨ Expand art to page**, choose the part of the artwork (no name, text or border), and it fills the page behind the card, with the card in the middle pocket
+- **✨ AI extend:** in "Expand art to page", the AI paints new scenery around the card's artwork (same style, no text or border) so it fills the whole page, with your card in the middle. Uses Stability AI: paste your key in the dialog (from platform.stability.ai; a few cents per extend) or put `STABILITY_API_KEY=...` in a `.env.local` file
+- **Share:** share codes to paste in Discord, binder files (with your uploaded images), and opening both
+- **Community gallery** (the **Community** link): binders posted as `[Binder]` issues on this GitHub repo, upvoted with 👍, opened with one click. The repo owner removes posts by closing the issue
 - **Free background library:** 14 original backgrounds (fire, water, psychic, nebula, holo…) anyone can use, in the Upload tab
 - Online-only sets (Pokémon TCG Pocket) are hidden, so only cards that exist as physical cards show up
 

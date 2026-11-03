@@ -19,6 +19,8 @@ import { formatPrice, formatTotal, infoKey, useCardInfo, type CardInfo } from "@
 import { Pocket, SlotImage, useCustomImage } from "./Pocket";
 import { Library } from "./Library";
 import { ExpandArtDialog } from "./ExpandArtDialog";
+import { ShareDialog } from "./ShareDialog";
+import Link from "next/link";
 import { cardImage } from "@/lib/tcgdex";
 import pkg from "../../package.json";
 
@@ -232,6 +234,7 @@ export function Editor() {
   const [exporting, setExporting] = useState(false);
   const [showPrices, setShowPrices] = useState(true);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [expandFor, setExpandFor] = useState<{ page: number; index: number } | null>(null);
   const expandSlot = expandFor && binder ? binder.pages[expandFor.page]?.[expandFor.index] : null;
   const expandCustomUrl = useCustomImage(expandSlot?.kind === "custom" ? expandSlot.imageId : undefined);
@@ -386,6 +389,16 @@ export function Editor() {
           >
             {exporting ? "Exporting…" : "Export PNG"}
           </button>
+          <button
+            type="button"
+            onClick={() => setShareOpen(true)}
+            className="rounded-md border border-amber-400/60 px-3 py-1.5 text-sm font-semibold text-amber-300 hover:bg-amber-400/10"
+          >
+            Share
+          </button>
+          <Link href="/gallery" className="rounded-md px-2 py-1.5 text-sm text-white/70 hover:text-white">
+            Community
+          </Link>
           <button
             type="button"
             onClick={() => setPdfOpen(true)}
@@ -569,10 +582,24 @@ export function Editor() {
       </div>
 
       {pdfOpen && <PdfDialog binder={binder} onClose={() => setPdfOpen(false)} />}
+      {shareOpen && (
+        <ShareDialog
+          binder={binder}
+          onClose={() => setShareOpen(false)}
+          onImport={(b) => {
+            actions.importBinder(b);
+            setShareOpen(false);
+            setSpread(0);
+            setSel(null);
+          }}
+        />
+      )}
       {expandFor && expandSrc && (
         <ExpandArtDialog
           src={expandSrc}
           name={expandSlot?.kind === "card" ? expandSlot.name : "Custom art"}
+          rows={binder.rows}
+          cols={binder.cols}
           onClose={() => setExpandFor(null)}
           onApply={(art, centerCard) => {
             const { page, index } = expandFor;

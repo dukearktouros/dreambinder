@@ -1,8 +1,9 @@
 "use client";
 // "Expand art": crop the artwork out of a card (no name, text or border) and spread it
 // behind the whole page, with the card itself in the middle pocket.
-import { useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { PageArt } from "@/lib/types";
+import { extendArtWithAi, getAiKey, setAiKey } from "@/lib/ai";
 
 type Crop = { x: number; y: number; w: number; h: number };
 
@@ -18,11 +19,15 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 export function ExpandArtDialog({
   src,
   name,
+  rows,
+  cols,
   onApply,
   onClose,
 }: {
   src: string;
   name: string;
+  rows: number;
+  cols: number;
   onApply: (art: PageArt, centerCard: boolean) => void;
   onClose: () => void;
 }) {
@@ -31,6 +36,31 @@ export function ExpandArtDialog({
   const [soft, setSoft] = useState(1.5);
   const [center, setCenter] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [mode, setMode] = useState<"ai" | "stretch">("ai");
+  const [prompt, setPrompt] = useState("");
+  const [creativity, setCreativity] = useState(0.5);
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const abort = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setKey(getAiKey());
+    return () => abort.current?.abort();
+  }, []);
+
+  async function generate() {
+    setBusy(true);
+    setError(undefined);
+    abort.current = new AbortController();
+    try {
+      const art = await extendArtWithAi(src, crop, rows, cols, { prompt, creativity, signal: abort.current.signal });
+      onApply(art, true);
+    } catch (e) {
+      if (!abort.current.signal.aborted) setError(e instanceof Error ? e.message : "AI request failed");
+    } finally {
+      setBusy(false);
+    }
+  }
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ mode: "move" | "resize"; px: number; py: number; start: Crop } | null>(null);
 
@@ -62,7 +92,7 @@ export function ExpandArtDialog({
       >
         <div
           ref={box}
-          className="relative mx-auto w-full max-w-[300px] shrink-0 select-none touch-none"
+          className="relative mx-auto w-full max-w-[300px] shrink-0 select-none self-start touch-none"
           onPointerMove={move}
           onPointerUp={end}
           onPointerCancel={end}
@@ -112,9 +142,30 @@ export function ExpandArtDialog({
 
         <div className="flex flex-1 flex-col gap-3">
           <h2 className="text-lg font-bold">Expand art to page</h2>
+          <div className="flex gap-1 rounded-lg bg-black/30 p-1" role="tablist">
+            {(
+              [
+                ["ai", "✨ AI extend"],
+                ["stretch", "Stretch (free)"],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => setMode(m)}
+                className={`flex-1 rounded-md py-1.5 text-sm font-medium ${mode === m ? "bg-amber-400 text-black" : "text-white/70"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <p className="text-white/60">
-            The part inside the yellow box becomes the background of the whole page, so the name, text and border
-            are left out. Drag the box to move it, and the round handle to resize it.
+            {mode === "ai"
+              ? "The AI keeps the artwork inside the yellow box and paints new scenery around it in the same style, so it fills the whole page. Your card goes in the middle pocket."
+              : "The part inside the yellow box is enlarged to fill the whole page, so the name, text and border are left out."}{" "}
+            Drag the box to move it, and the round handle to resize it.
           </p>
           <div className="flex flex-wrap gap-1.5">
             {PRESETS.map((p) => (
@@ -128,6 +179,55 @@ export function ExpandArtDialog({
               </button>
             ))}
           </div>
+          {mode === "ai" && (
+            <div className="space-y-2">
+              <label className="block">
+                <span className="text-white/60">Describe the scene (optional)</span>
+                <input
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="e.g. moonlit sky with pink clouds over a mossy cliff"
+                  className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1.5 outline-none focus:border-amber-400"
+                />
+              </label>
+              <label className="flex items-center gap-2">
+                <span className="text-white/60">Creativity</span>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={creativity}
+                  aria-label="Creativity"
+                  onChange={(e) => setCreativity(Number(e.target.value))}
+                  className="flex-1 accent-amber-400"
+                />
+              </label>
+              <label className="block">
+                <span className="text-white/60">Stability AI key</span>
+                <input
+                  type="password"
+                  value={key}
+                  onChange={(e) => {
+                    setKey(e.target.value);
+                    setAiKey(e.target.value);
+                  }}
+                  placeholder="sk-…"
+                  className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1.5 outline-none focus:border-amber-400"
+                />
+                <span className="mt-1 block text-xs text-white/40">
+                  Get one at{" "}
+                  <a href="https://platform.stability.ai/account/keys" target="_blank" rel="noreferrer" className="text-amber-300 underline">
+                    platform.stability.ai
+                  </a>
+                  . Each extend costs a few cents of credit. Your key stays on this computer.
+                </span>
+              </label>
+              {error && <p className="text-red-400">{error}</p>}
+            </div>
+          )}
+          {mode === "stretch" && (
+          <>
           <label className="flex items-center gap-2">
             <span className="text-white/60">Soften</span>
             <input
@@ -148,10 +248,22 @@ export function ExpandArtDialog({
             <input type="checkbox" checked={center} onChange={(e) => setCenter(e.target.checked)} />
             Put this card in the middle pocket
           </label>
+          </>
+          )}
           <div className="mt-auto flex justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 hover:bg-white/10">
               Cancel
             </button>
+            {mode === "ai" ? (
+              <button
+                type="button"
+                disabled={!natural || busy}
+                onClick={generate}
+                className="rounded-md bg-amber-400 px-3 py-1.5 font-semibold text-black hover:bg-amber-300 disabled:opacity-50"
+              >
+                {busy ? "Painting… (10-30 s)" : "✨ Extend with AI"}
+              </button>
+            ) : (
             <button
               type="button"
               disabled={!natural}
@@ -175,6 +287,7 @@ export function ExpandArtDialog({
             >
               Expand art
             </button>
+            )}
           </div>
         </div>
       </div>

@@ -44,6 +44,12 @@ function load(): State {
   return { binders: [b], activeId: b.id };
 }
 
+/** Add a binder from outside the editor (e.g. the gallery page); it opens next time the editor loads. */
+export function addBinderToStorage(b: Binder) {
+  const s = load();
+  localStorage.setItem(KEY, JSON.stringify({ binders: [...s.binders, b], activeId: b.id }));
+}
+
 export function useBinders() {
   const [state, setState] = useState<State | null>(null);
 
@@ -204,6 +210,9 @@ export function useBinders() {
         if (cards) b.pages = paginate(cards, b.rows * b.cols);
         return { binders: [...s.binders, b], activeId: b.id };
       }),
+
+    /** Add a binder (from a share code, file or the gallery) and open it. */
+    importBinder: (b: Binder) => setState((s) => s && { binders: [...s.binders, b], activeId: b.id }),
 
     selectBinder: (id: string) => setState((s) => s && { ...s, activeId: id }),
 
